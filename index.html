@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <title>DEATH SENSOR - 1-Bit Head Tracking Zombie Shooter</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="game-container">
+    <!-- Main Render Canvas -->
+    <canvas id="gameCanvas" width="640" height="400"></canvas>
+
+    <!-- Scanline & CRT Vignette Overlay for 1-Bit Aesthetic -->
+    <div id="crt-overlay"></div>
+
+    <!-- Hidden Video & Canvas for Headtrackr -->
+    <div id="headtrackr-wrapper">
+      <video id="headtrackr-video" autoplay loop playsinline muted width="320" height="240"></video>
+      <canvas id="headtrackr-canvas" width="320" height="240"></canvas>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud" class="hidden">
+      <div class="hud-top">
+        <div class="hud-box">
+          <span class="hud-label">WAVE</span>
+          <span id="hud-wave" class="hud-val">01</span>
+        </div>
+        <div class="hud-box">
+          <span class="hud-label">ZOMBIES</span>
+          <span id="hud-zombies" class="hud-val">0/0</span>
+        </div>
+        <div class="hud-box">
+          <span class="hud-label">SCORE</span>
+          <span id="hud-score" class="hud-val">00000</span>
+        </div>
+        <div class="hud-box pause-btn-box">
+          <button id="btn-pause-toggle" class="retro-btn sm">PAUSE [ESC]</button>
+        </div>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="hud-box health-box">
+          <span class="hud-label">HEALTH</span>
+          <div class="health-bar-container">
+            <div id="hud-health-fill" class="health-bar-fill" style="width: 100%;"></div>
+          </div>
+          <span id="hud-health-val" class="hud-val">100/100</span>
+        </div>
+
+        <div class="hud-box sensor-box">
+          <span class="hud-label">HEAD TILT TRACKING</span>
+          <div id="sensor-indicator">
+            <div id="sensor-center-line"></div>
+            <div id="sensor-pip"></div>
+          </div>
+          <div class="sensor-mini-actions">
+            <button id="btn-recenter-quick" class="retro-btn xs">RE-CENTER</button>
+            <span id="cam-status-badge" class="cam-badge">READY</span>
+          </div>
+        </div>
+
+        <div class="hud-box weapon-box">
+          <span class="hud-label">GUN STATUS</span>
+          <span id="hud-weapon-status" class="hud-val-sm">AUTO-FIRE [ON]</span>
+          <div id="hud-perks-list" class="perk-badges"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- START / TITLE MENU -->
+    <div id="menu-start" class="menu-modal">
+      <div class="menu-content">
+        <h1 class="glitch-title">DEATH SENSOR</h1>
+        <p class="subtitle">1-BIT HEAD-TRACKING ZOMBIE SHOOTER</p>
+        
+        <div class="instructions-card">
+          <p class="bold-text">HOW TO CONNECT AIRPODS PRO & PLAY:</p>
+          <ul>
+            <li>🎧 <strong>ใส่ AirPods Pro (อย่างน้อย 1 ข้าง) ในหู</strong> แล้วเปิดเพลงหรือกดปุ่มเชื่อมต่อด้านล่าง (ต้องเปิด <em>Automatic Ear Detection / ตรวจจับใบหูอัตโนมัติ</em> ในตั้งค่า Bluetooth)</li>
+            <li>🔒 <strong>อนุญาตสิทธิ์บน Mac</strong>: หากมีป๊อปอัปถามสิทธิ์ <em>"AirPodsBridge Would Like to Access Your Motion & Fitness Activity"</em> ให้กด <strong>Allow / อนุญาต</strong></li>
+            <li>↔️ <strong>โยกศีรษะ หรือหันหน้า ซ้าย - ขวา</strong> เพื่อเล็งเป้าปืน (กดปุ่ม <strong>[C]</strong> เพื่อตั้งศูนย์กลางหน้าตรงใหม่ได้ตลอดเวลา)</li>
+            <li>🔫 ปืนจะ <strong>ยิงรัวอัตโนมัติ (Auto-Fire)</strong> ตลอดเวลา และมี 10 ลูกเล่นให้เลือกทุก 10 เวฟ</li>
+            <li>⚠️ เลือดมี <strong>100 HP คงที่</strong> ซอมบี้กัดครั้งละ 10 HP และซ้ำทุก 3 วินาที</li>
+          </ul>
+        </div>
+
+        <div class="sensor-connect-box">
+          <button id="btn-request-sensor" class="retro-btn primary start-sensor-btn">
+            ▶ 1. CONNECT AIRPODS PRO MOTION SENSOR
+          </button>
+          <div id="sensor-status-text" class="status-neutral">
+            Checking Native AirPods Bridge (127.0.0.1:8765)...
+          </div>
+        </div>
+
+        <div class="menu-actions">
+          <button id="btn-start-game" class="retro-btn start-btn">START GAME</button>
+        </div>
+
+        <div class="controls-hint">
+          Fallback Controls: Mouse Movement or Keyboard Keys [A]/[D] | Pause [ESC]
+        </div>
+      </div>
+    </div>
+
+    <!-- PAUSE MENU -->
+    <div id="menu-pause" class="menu-modal hidden">
+      <div class="menu-content">
+        <h2>GAME PAUSED</h2>
+        <div class="menu-buttons-list">
+          <button id="btn-resume" class="retro-btn primary">RESUME</button>
+          <button id="btn-recenter" class="retro-btn">RE-CENTER HEAD POSITION</button>
+          <button id="btn-restart" class="retro-btn">RESTART WAVE 1</button>
+          <button id="btn-quit" class="retro-btn">EXIT TO TITLE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PERK / UPGRADE MENU (EVERY 10 WAVES) -->
+    <div id="menu-perk" class="menu-modal hidden">
+      <div class="menu-content perk-content">
+        <h2 class="perk-header">★ WAVE <span id="perk-wave-num">10</span> CLEARED! ★</h2>
+        <p class="perk-subtitle">CHOOSE YOUR WEAPON REINFORCEMENT</p>
+        
+        <div id="perk-cards-container" class="cards-grid">
+          <!-- Dynamically populated 3 choices -->
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME OVER MENU -->
+    <div id="menu-gameover" class="menu-modal hidden">
+      <div class="menu-content">
+        <h1 class="gameover-title">YOU DIED</h1>
+        <p class="subtitle">THE HORDE OVERWHELMED YOU</p>
+        <div class="stats-card">
+          <p>WAVES SURVIVED: <span id="go-wave" class="stat-highlight">0</span></p>
+          <p>ZOMBIES SLAIN: <span id="go-kills" class="stat-highlight">0</span></p>
+          <p>FINAL SCORE: <span id="go-score" class="stat-highlight">0</span></p>
+        </div>
+        <div class="menu-buttons-list">
+          <button id="btn-retry" class="retro-btn primary">TRY AGAIN</button>
+          <button id="btn-mainmenu" class="retro-btn">MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Muzzle Flash & Hurt Invert Overlay -->
+    <div id="flash-overlay"></div>
+  </div>
+
+  <!-- Local Libraries & Scripts -->
+  <script src="headtrackr.min.js"></script>
+  <script src="audio.js"></script>
+  <script src="sensor.js"></script>
+  <script src="sprites.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
